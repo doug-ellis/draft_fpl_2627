@@ -21,7 +21,7 @@ This writes outputs to:
 
 ## 2) Use One Notebook (No Copy/Paste)
 
-In `transfer/outputs`, load the latest outputs with:
+Source modules (`latest_gw_tools.py`, `squad_selection.py`) live in `transfer/`; the generated notebooks live in `transfer/outputs/` and add `transfer/` to `sys.path` to import them. From `transfer/outputs`, load the latest outputs with:
 
 ```python
 from latest_gw_tools import load_latest_outputs
