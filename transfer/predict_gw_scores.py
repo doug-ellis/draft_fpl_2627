@@ -68,7 +68,8 @@ def get_prediction_df(year, gw, avg_type, alpha=0.3, rolling_gws=4):
     return prediction_df
 
 def test_model(training_df_f, features, model_func):
-    _, rmse_dict, _ = create_model(training_df_f, features, model_func, test=True)
+    _, metrics_dict, _ = create_model(training_df_f, features, model_func, test=True)
+    rmse_dict = {pos: (m['rmse'] if m else None) for pos, m in metrics_dict.items()}
     print(rmse_dict)
     return rmse_dict
 

@@ -37,3 +37,63 @@ from latest_gw_tools import load_gw_outputs
 
 pred_simple, pred_full, fixture_diff = load_gw_outputs(35)
 ```
+
+## 3) Evaluating Model / Feature Changes
+
+Use `evaluate_model.py` to check train/test RMSE, MAE, and R2 for a feature set or
+model choice without running the full prediction pipeline (no `--pred-gw`, no live
+fixture/ownership network calls, no CSV outputs written).
+
+Baseline run (default features, default model, single 70/30 split):
+
+```powershell
+python transfer/evaluate_model.py
+```
+
+Drop a feature to see its effect:
+
+```powershell
+python transfer/evaluate_model.py --exclude-features ict_index influence
+```
+
+Add a feature that isn't in the default set: first add it to `player_value_cols` in
+both `get_ewma_df()` and `get_rolling_df()` in `wrangle_data_funcs.py` (so it gets
+EWMA'd/rolled into the training data), then reference it:
+
+```powershell
+python transfer/evaluate_model.py --extra-features defensive_contribution
+```
+
+Swap model type:
+
+```powershell
+python transfer/evaluate_model.py --model xgboost
+```
+
+Check whether a change is a real improvement or noise, by rerunning the split with
+multiple random seeds and comparing mean +/- std (useful especially for GK, which has
+the fewest samples and the noisiest single-split RMSE):
+
+```powershell
+python transfer/evaluate_model.py --repeats 10
+python transfer/evaluate_model.py --repeats 10 --exclude-features ict_index influence
+```
+
+See which features matter most (permutation importance — model-agnostic, so it's
+comparable across `--model` choices):
+
+```powershell
+python transfer/evaluate_model.py --show-importance
+```
+
+Log a run to CSV for side-by-side comparison later:
+
+```powershell
+python transfer/evaluate_model.py --model ridge --repeats 10 --save-csv transfer/outputs/eval_runs.csv
+```
+
+Full override of the feature list (bypasses `get_features()` entirely):
+
+```powershell
+python transfer/evaluate_model.py --features ewma_total_points value minutes
+```
