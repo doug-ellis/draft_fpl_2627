@@ -12,25 +12,26 @@ def evaluate_model(X, y, model):
     r2 = r2_score(y, y_pred)
     return mae, rmse, r2
 
-def _build_model(model_func):
-    if model_func == XGBRegressor:
-        return XGBRegressor(n_estimators=100, learning_rate=0.1, max_depth=3, random_state=42)
-    if model_func == LinearRegression:
-        return LinearRegression()
-    if model_func == Ridge:
-        return Ridge(alpha=1.0)
-    if model_func == Lasso:
-        return Lasso(alpha=0.1)
-    if model_func == ElasticNet:
-        return ElasticNet(alpha=0.1, l1_ratio=0.5)
-    raise ValueError("Unsupported model function")
+_DEFAULT_PARAMS = {
+    XGBRegressor: {'n_estimators': 100, 'learning_rate': 0.1, 'max_depth': 3, 'random_state': 42},
+    LinearRegression: {},
+    Ridge: {'alpha': 1.0},
+    Lasso: {'alpha': 0.1},
+    ElasticNet: {'alpha': 0.1, 'l1_ratio': 0.5},
+}
 
-def create_model(training_df, features, model_func, test, random_state=42):
+def _build_model(model_func, params=None):
+    if model_func not in _DEFAULT_PARAMS:
+        raise ValueError("Unsupported model function")
+    merged_params = {**_DEFAULT_PARAMS[model_func], **(params or {})}
+    return model_func(**merged_params)
+
+def create_model(training_df, features, model_func, test, random_state=42, model_params=None):
     model_dict = {}
     metrics_dict = {}
     scaler_dict = {}
     for pos in ['GK', 'DEF', 'MID', 'FWD']:
-        model = _build_model(model_func)
+        model = _build_model(model_func, model_params)
         training_df_pos = training_df.query('position==@pos').dropna(subset=features + ['total_points_nw']).copy()
         X = training_df_pos[features].copy()
         y = training_df_pos['total_points_nw']

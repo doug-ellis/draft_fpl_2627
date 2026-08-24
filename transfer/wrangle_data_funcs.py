@@ -124,6 +124,11 @@ def get_team_strength_df(year):
                       'strength_defence_home', 'strength_defence_away']
     return teams_df[strength_cols].set_index('name')
 
+def get_was_home_bool(gw_df):
+    """Robustly coerces the raw was_home column (bool or "True"/"False" string,
+    depending on how it was read) to an actual boolean Series."""
+    return (gw_df['was_home'] == True) | (gw_df['was_home'].astype(str) == 'True')
+
 def add_team_strength_features(gw_df, year):
     """Adds venue-appropriate own-team and opponent strength columns to gw_df.
 
@@ -133,7 +138,7 @@ def add_team_strength_features(gw_df, year):
     strength_df = get_team_strength_df(year)
     teamcode_dict = get_teamcodes(year)
     opponent_name = gw_df['opponent_team'].map(teamcode_dict)
-    was_home = (gw_df['was_home'] == True) | (gw_df['was_home'].astype(str) == 'True')
+    was_home = get_was_home_bool(gw_df)
 
     stat_cols = {
         'overall': ('strength_overall_home', 'strength_overall_away'),
@@ -177,6 +182,9 @@ def get_ewma_df(year, gw, ewma_alpha):
 
     gw_df['full_name'] = gw_df['name'].apply(clean_name)
     gw_df = add_team_strength_features(gw_df, year)
+    # Normalize was_home to a clean 0/1 int so it can be carried through as its own
+    # feature (home advantage is a real effect, currently not otherwise exposed).
+    gw_df['was_home'] = get_was_home_bool(gw_df).astype(int)
 
     player_value_cols = ['xP', 'assists', 'bonus', 'bps',
        'clean_sheets', 'creativity', 'expected_assists',
@@ -187,11 +195,11 @@ def get_ewma_df(year, gw, ewma_alpha):
        'red_cards', 'saves', 'starts',
        'threat', 'total_points', 'transfers_balance',
        'transfers_in', 'transfers_out', 'value', 'yellow_cards']
-    # Strength ratings are already a stable season-level number, not a noisy per-gw
-    # stat, so they're carried through unmodified rather than EWMA'd/rolled.
+    # Strength ratings and was_home are already stable/per-fixture values, not noisy
+    # per-gw stats, so they're carried through unmodified rather than EWMA'd/rolled.
     strength_cols = ['team_strength_attack', 'team_strength_defence', 'team_strength_overall',
                       'opponent_strength_attack', 'opponent_strength_defence', 'opponent_strength_overall']
-    merge_cols_players = ['full_name', 'gw', 'total_points', 'position', 'team', 'opponent_team'] + strength_cols
+    merge_cols_players = ['full_name', 'gw', 'total_points', 'position', 'team', 'opponent_team', 'was_home'] + strength_cols
     ewma_gw_df_players = ewma(gw_df, 'full_name', player_value_cols, ewma_alpha, {'total_points': 'ewma_total_points'}, merge_cols_players)
 
     gw_df_teams = get_teams_df(gw_df)
@@ -208,6 +216,9 @@ def get_rolling_df(year, gw, rolling_gws):
 
     gw_df['full_name'] = gw_df['name'].apply(clean_name)
     gw_df = add_team_strength_features(gw_df, year)
+    # Normalize was_home to a clean 0/1 int so it can be carried through as its own
+    # feature (home advantage is a real effect, currently not otherwise exposed).
+    gw_df['was_home'] = get_was_home_bool(gw_df).astype(int)
 
     player_value_cols = ['xP', 'assists', 'bonus', 'bps',
        'clean_sheets', 'creativity', 'expected_assists',
@@ -218,11 +229,11 @@ def get_rolling_df(year, gw, rolling_gws):
        'red_cards', 'saves', 'starts',
        'threat', 'total_points', 'transfers_balance',
        'transfers_in', 'transfers_out', 'value', 'yellow_cards']
-    # Strength ratings are already a stable season-level number, not a noisy per-gw
-    # stat, so they're carried through unmodified rather than EWMA'd/rolled.
+    # Strength ratings and was_home are already stable/per-fixture values, not noisy
+    # per-gw stats, so they're carried through unmodified rather than EWMA'd/rolled.
     strength_cols = ['team_strength_attack', 'team_strength_defence', 'team_strength_overall',
                       'opponent_strength_attack', 'opponent_strength_defence', 'opponent_strength_overall']
-    merge_cols_players = ['full_name', 'gw', 'total_points', 'position', 'team', 'opponent_team'] + strength_cols
+    merge_cols_players = ['full_name', 'gw', 'total_points', 'position', 'team', 'opponent_team', 'was_home'] + strength_cols
     ewma_gw_df_players = roll(gw_df, 'full_name', player_value_cols, {'total_points': 'ewma_total_points'}, merge_cols_players, rolling_gws)
 
     gw_df_teams = get_teams_df(gw_df)

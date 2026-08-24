@@ -108,3 +108,21 @@ Full override of the feature list (bypasses `get_features()` entirely):
 ```powershell
 python transfer/evaluate_model.py --features ewma_total_points value minutes
 ```
+
+Try the home-advantage flag (also not in the default feature list yet):
+
+```powershell
+python transfer/evaluate_model.py --extra-features was_home --show-importance
+```
+
+## 4) Tuning Hyperparameters
+
+Use `tune_model.py` to search each model family's hyperparameters against the same
+train/test harness `evaluate_model.py` uses. Nothing is auto-promoted — review the
+printed results and copy the winning config into `_DEFAULT_PARAMS` in
+`modelling_funcs.py` yourself.
+
+```powershell
+python transfer/tune_model.py --model elasticnet
+python transfer/tune_model.py --model all --repeats 3
+```

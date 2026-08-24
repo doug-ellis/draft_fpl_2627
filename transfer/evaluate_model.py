@@ -31,10 +31,10 @@ def parse_args():
     )
     parser.add_argument("--training-years", nargs="+", type=int, default=[24, 25, 26], help="Training season suffixes, e.g. 24 25 26.")
     parser.add_argument("--training-n-gws", type=int, default=38, help="Number of GWs to include from each training year.")
-    parser.add_argument("--alpha", type=float, default=0.3, help="EWMA alpha if using ewma averaging.")
+    parser.add_argument("--alpha", type=float, default=0.6, help="EWMA alpha if using ewma averaging.")
     parser.add_argument("--rolling-gws", type=int, default=4, help="Rolling window size if using rolling averaging.")
-    parser.add_argument("--avg-type", choices=["rolling", "ewma"], default="rolling", help="Feature averaging strategy.")
-    parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="elasticnet", help="Model family.")
+    parser.add_argument("--avg-type", choices=["rolling", "ewma"], default="ewma", help="Feature averaging strategy.")
+    parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="ridge", help="Model family.")
 
     parser.add_argument("--features", nargs="+", default=None, help="Full override of the feature list (replaces get_features() entirely).")
     parser.add_argument("--exclude-features", nargs="+", default=None, help="Feature names to drop from the default get_features() list.")
