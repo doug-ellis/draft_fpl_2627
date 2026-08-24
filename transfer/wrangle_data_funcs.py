@@ -102,6 +102,56 @@ def get_teamcodes(year):
     teamcode_dict = dict(zip(teams['id'], teams['name']))
     return teamcode_dict
 
+def get_team_strength_df(year):
+    """Season-level FPL team strength ratings, indexed by team name.
+
+    Always fetched fresh from vaastav's GitHub repo, same as get_teamcodes() (its
+    paired function, also used to name-map opponent_team below) -- deliberately NOT
+    using a locally-cached teams.csv the way import_data_from_vastaav does for
+    per-gameweek data: a local teams.csv can go stale (e.g. still listing a
+    relegated team) if it isn't rescraped after squads/promotions change, which would
+    silently produce NaN strength values for any current team missing from it.
+    These ratings are a single per-season snapshot (not per-gameweek), which is fine
+    since they're meant to change slowly. strength_attack_*/strength_defence_* can be
+    0 pre-season/early in a season, before FPL has computed them.
+    """
+    year_range = f'20{year-1}-{year}'
+    teams_url = f'https://raw.githubusercontent.com/vaastav/Fantasy-Premier-League/refs/heads/master/data/{year_range}/teams.csv'
+    teams_df = pd.read_csv(teams_url)
+
+    strength_cols = ['name', 'strength_overall_home', 'strength_overall_away',
+                      'strength_attack_home', 'strength_attack_away',
+                      'strength_defence_home', 'strength_defence_away']
+    return teams_df[strength_cols].set_index('name')
+
+def add_team_strength_features(gw_df, year):
+    """Adds venue-appropriate own-team and opponent strength columns to gw_df.
+
+    Uses each row's own team + venue (was_home) to pick that team's home/away rating,
+    and the opponent's venue is the mirror image (they're playing the opposite venue).
+    """
+    strength_df = get_team_strength_df(year)
+    teamcode_dict = get_teamcodes(year)
+    opponent_name = gw_df['opponent_team'].map(teamcode_dict)
+    was_home = (gw_df['was_home'] == True) | (gw_df['was_home'].astype(str) == 'True')
+
+    stat_cols = {
+        'overall': ('strength_overall_home', 'strength_overall_away'),
+        'attack': ('strength_attack_home', 'strength_attack_away'),
+        'defence': ('strength_defence_home', 'strength_defence_away'),
+    }
+    for stat, (home_col, away_col) in stat_cols.items():
+        team_home_vals = gw_df['team'].map(strength_df[home_col])
+        team_away_vals = gw_df['team'].map(strength_df[away_col])
+        gw_df[f'team_strength_{stat}'] = team_home_vals.where(was_home, team_away_vals)
+
+        # Opponent plays at the opposite venue from the player's own team.
+        opp_home_vals = opponent_name.map(strength_df[home_col])
+        opp_away_vals = opponent_name.map(strength_df[away_col])
+        gw_df[f'opponent_strength_{stat}'] = opp_away_vals.where(was_home, opp_home_vals)
+
+    return gw_df
+
 def merge_ewma_dfs(ewma_gw_df_players, ewma_gw_df_teams, year):
     teamcode_dict = get_teamcodes(year)
     ewma_gw_df_players['opponent_team_name'] = ewma_gw_df_players['opponent_team'].map(teamcode_dict)
@@ -126,6 +176,7 @@ def get_ewma_df(year, gw, ewma_alpha):
     gw_df = add_team_data(gw_df)
 
     gw_df['full_name'] = gw_df['name'].apply(clean_name)
+    gw_df = add_team_strength_features(gw_df, year)
 
     player_value_cols = ['xP', 'assists', 'bonus', 'bps',
        'clean_sheets', 'creativity', 'expected_assists',
@@ -136,7 +187,11 @@ def get_ewma_df(year, gw, ewma_alpha):
        'red_cards', 'saves', 'starts',
        'threat', 'total_points', 'transfers_balance',
        'transfers_in', 'transfers_out', 'value', 'yellow_cards']
-    merge_cols_players = ['full_name', 'gw', 'total_points', 'position','team','opponent_team']
+    # Strength ratings are already a stable season-level number, not a noisy per-gw
+    # stat, so they're carried through unmodified rather than EWMA'd/rolled.
+    strength_cols = ['team_strength_attack', 'team_strength_defence', 'team_strength_overall',
+                      'opponent_strength_attack', 'opponent_strength_defence', 'opponent_strength_overall']
+    merge_cols_players = ['full_name', 'gw', 'total_points', 'position', 'team', 'opponent_team'] + strength_cols
     ewma_gw_df_players = ewma(gw_df, 'full_name', player_value_cols, ewma_alpha, {'total_points': 'ewma_total_points'}, merge_cols_players)
 
     gw_df_teams = get_teams_df(gw_df)
@@ -152,6 +207,7 @@ def get_rolling_df(year, gw, rolling_gws):
     gw_df = add_team_data(gw_df)
 
     gw_df['full_name'] = gw_df['name'].apply(clean_name)
+    gw_df = add_team_strength_features(gw_df, year)
 
     player_value_cols = ['xP', 'assists', 'bonus', 'bps',
        'clean_sheets', 'creativity', 'expected_assists',
@@ -162,7 +218,11 @@ def get_rolling_df(year, gw, rolling_gws):
        'red_cards', 'saves', 'starts',
        'threat', 'total_points', 'transfers_balance',
        'transfers_in', 'transfers_out', 'value', 'yellow_cards']
-    merge_cols_players = ['full_name', 'gw', 'total_points', 'position','team','opponent_team']
+    # Strength ratings are already a stable season-level number, not a noisy per-gw
+    # stat, so they're carried through unmodified rather than EWMA'd/rolled.
+    strength_cols = ['team_strength_attack', 'team_strength_defence', 'team_strength_overall',
+                      'opponent_strength_attack', 'opponent_strength_defence', 'opponent_strength_overall']
+    merge_cols_players = ['full_name', 'gw', 'total_points', 'position', 'team', 'opponent_team'] + strength_cols
     ewma_gw_df_players = roll(gw_df, 'full_name', player_value_cols, {'total_points': 'ewma_total_points'}, merge_cols_players, rolling_gws)
 
     gw_df_teams = get_teams_df(gw_df)

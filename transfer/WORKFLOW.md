@@ -86,6 +86,17 @@ comparable across `--model` choices):
 python transfer/evaluate_model.py --show-importance
 ```
 
+Try the team/opponent strength ratings (FPL's official `strength_overall/attack/defence_home/away`
+per team, venue-matched to each fixture — `team_strength_*` / `opponent_strength_*`).
+These aren't in the default feature list yet; add them with `--extra-features` to
+evaluate before promoting them into `get_features()` in `predict_gw_scores.py`. Note
+`_attack`/`_defence` values come back as `0` for a season before FPL has computed them
+(e.g. pre-season) — `_overall` is populated earlier and is a reasonable fallback:
+
+```powershell
+python transfer/evaluate_model.py --extra-features team_strength_attack team_strength_defence team_strength_overall opponent_strength_attack opponent_strength_defence opponent_strength_overall --model xgboost --show-importance
+```
+
 Log a run to CSV for side-by-side comparison later:
 
 ```powershell
