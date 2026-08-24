@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 
 def import_data_from_vastaav(year, n_gws):
     year_range = f'20{year-1}-{year}'
-    _local_root = Path(__file__).parent.parent.parent / "Fantasy-Premier-League" / "data"
+    _local_root = Path(__file__).parent / "outputs" / "scraped_data" / "data"
     gw_df_list = []
     for i in range(1, n_gws+1):
         local_path = _local_root / year_range / "gws" / f"gw{i}.csv"

@@ -11,14 +11,23 @@ def parse_args():
     parser.add_argument("--pred-year", type=int, default=27, help="Prediction season suffix, e.g. 27 for 2026-27.")
     parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="elasticnet")
     parser.add_argument("--skip-eval", action="store_true", help="Skip train/test RMSE printout.")
-    parser.add_argument("--skip-scrape", action="store_true", help="Skip FPL data scrape (use existing local data).")
+    parser.add_argument(
+        "--skip-scrape", "--skip-scraping",
+        dest="skip_scrape", action="store_true",
+        help="Skip the FPL data scrape and use the most recent data already in transfer/outputs/scraped_data.",
+    )
     return parser.parse_args()
 
 
 def run_scraper(transfer_dir):
     scraper = transfer_dir.parent.parent / "Fantasy-Premier-League" / "global_scraper.py"
+    scraped_data_dir = transfer_dir / "outputs" / "scraped_data"
+    scraped_data_dir.mkdir(parents=True, exist_ok=True)
     print("Scraping FPL data (this takes ~10-20 minutes)...")
-    subprocess.run([sys.executable, str(scraper)], cwd=scraper.parent, check=True)
+    # global_scraper.py writes to a `data/<season>/` path relative to cwd, so running it
+    # with cwd set here lands the output at transfer/outputs/scraped_data/data/<season>/
+    # instead of inside the separate Fantasy-Premier-League checkout.
+    subprocess.run([sys.executable, str(scraper)], cwd=scraped_data_dir, check=True)
 
 
 def run_predictions(args, transfer_dir):
