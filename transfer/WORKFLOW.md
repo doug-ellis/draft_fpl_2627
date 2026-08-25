@@ -49,12 +49,16 @@ Note: `latest_gw_tools.load_latest_outputs()` picks the *last* week of the horiz
 
 ## 2) Use One Notebook (No Copy/Paste)
 
-Source modules (`latest_gw_tools.py`, `squad_selection.py`) live in `transfer/`; the generated notebooks live in `transfer/outputs/` and add `transfer/` to `sys.path` to import them. From `transfer/outputs`, load the latest outputs with:
+Source modules (`latest_gw_tools.py`, `squad_selection.py`) live in `transfer/`; the
+generated `looking_gw<gw>.ipynb` notebooks live in `transfer/outputs/picking_notebooks/`
+and add `transfer/` to `sys.path` to import them. From `transfer/outputs/picking_notebooks`,
+load the latest outputs with:
 
 ```python
 from latest_gw_tools import load_latest_outputs
 
-latest_gw, pred_simple, pred_full, fixture_diff = load_latest_outputs()
+latest_gw, pred_simple, pred_full, fixture_diff = load_latest_outputs(
+    predictions_dir='../predictions', fixture_dir='../fixture_difficulty')
 print(latest_gw)
 ```
 
@@ -63,7 +67,8 @@ If you want a specific GW:
 ```python
 from latest_gw_tools import load_gw_outputs
 
-pred_simple, pred_full, fixture_diff = load_gw_outputs(35)
+pred_simple, pred_full, fixture_diff = load_gw_outputs(
+    35, predictions_dir='../predictions', fixture_dir='../fixture_difficulty')
 ```
 
 ## 3) Evaluating Model / Feature Changes

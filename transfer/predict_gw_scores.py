@@ -208,14 +208,17 @@ def build_horizon_summary(simple_frames, horizon_gws):
     position, team, predicted_points, predicted_points_adj, fixture_diff_index,
     owner), as accumulated in main()'s per-week loop. Builds one wide row per player
     across the whole horizon, entirely from already-computed in-memory frames (no
-    disk re-read)."""
+    disk re-read). Emits both the raw model output (predicted_points) and the
+    fixture-difficulty-adjusted output (predicted_points_adj) per GW and in total."""
     base_cols = ['full_name', 'position', 'team', 'owner']
+    per_gw = {}
     per_gw_adj = {}
     identity_frames = []
 
     for target_gw in horizon_gws:
         df = simple_frames[target_gw]
         identity_frames.append(df[base_cols])
+        per_gw[target_gw] = df.set_index('full_name')['predicted_points']
         per_gw_adj[target_gw] = df.set_index('full_name')['predicted_points_adj']
 
     # A player's position/team/owner can in principle shift between weeks (e.g. an
@@ -225,17 +228,24 @@ def build_horizon_summary(simple_frames, horizon_gws):
 
     horizon_df = identity.set_index('full_name')
     for target_gw in horizon_gws:
+        horizon_df[f'gw{target_gw}_predicted_points'] = per_gw[target_gw]
         horizon_df[f'gw{target_gw}_predicted_points_adj'] = per_gw_adj[target_gw]
 
+    gw_cols = [f'gw{gw}_predicted_points' for gw in horizon_gws]
     adj_cols = [f'gw{gw}_predicted_points_adj' for gw in horizon_gws]
+    horizon_df['total_predicted_points'] = horizon_df[gw_cols].sum(axis=1, skipna=True)
     horizon_df['total_predicted_points_adj'] = horizon_df[adj_cols].sum(axis=1, skipna=True)
     horizon_df['n_gws_with_fixture'] = horizon_df[adj_cols].notna().sum(axis=1)
-    horizon_df['avg_predicted_points_adj'] = (
-        horizon_df['total_predicted_points_adj'] / horizon_df['n_gws_with_fixture'].replace(0, pd.NA)
-    )
+    n_gws_safe = horizon_df['n_gws_with_fixture'].replace(0, pd.NA)
+    horizon_df['avg_predicted_points'] = horizon_df['total_predicted_points'] / n_gws_safe
+    horizon_df['avg_predicted_points_adj'] = horizon_df['total_predicted_points_adj'] / n_gws_safe
 
-    out_cols = ['position', 'team', 'owner', 'total_predicted_points_adj',
-                'avg_predicted_points_adj', 'n_gws_with_fixture'] + adj_cols
+    per_gw_cols = [col for gw in horizon_gws for col in
+                   (f'gw{gw}_predicted_points', f'gw{gw}_predicted_points_adj')]
+    out_cols = ['position', 'team', 'owner',
+                'total_predicted_points', 'avg_predicted_points',
+                'total_predicted_points_adj', 'avg_predicted_points_adj',
+                'n_gws_with_fixture'] + per_gw_cols
     horizon_df = horizon_df[out_cols].reset_index()
     horizon_df = horizon_df.sort_values('total_predicted_points_adj', ascending=False)
     return horizon_df
