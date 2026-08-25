@@ -51,31 +51,17 @@ def create_gw_notebook(pred_gw, transfer_dir):
     notebooks_dir = outputs_dir / "picking_notebooks"
     notebooks_dir.mkdir(parents=True, exist_ok=True)
     template = outputs_dir / "looking_latest.ipynb"
-    dest = notebooks_dir / f"looking_gw{pred_gw}.ipynb"
+    dest = notebooks_dir / f"gw{pred_gw}.ipynb"
     if dest.exists():
         print(f"Notebook {dest.name} already exists, skipping creation.")
         return
+    # The template is already authored for picking_notebooks/'s depth (one level
+    # below outputs/): sys.path.append('../..'), predictions_dir/fixture_dir='../predictions'
+    # etc. Only the TARGET_GW placeholder needs substituting per GW.
     content = template.read_text(encoding="utf-8")
     content, n_subs = re.subn(r"TARGET_GW = None", f"TARGET_GW = {pred_gw}", content)
     if n_subs == 0:
         print(f"Warning: TARGET_GW placeholder not found in {template.name}; notebook created unmodified.")
-
-    # The template assumes it lives directly in outputs/ (one level below transfer/);
-    # picking_notebooks/ is one level deeper, so rewrite its relative paths to match.
-    content = content.replace(
-        "sys.path.append(str(Path('..').resolve()))",
-        "sys.path.append(str(Path('../..').resolve()))",
-    )
-    content = content.replace("Path('figures')", "Path('..') / 'figures'")
-    content = content.replace("Path('predictions')", "Path('..') / 'predictions'")
-    content = content.replace(
-        "load_latest_outputs()",
-        "load_latest_outputs(predictions_dir='../predictions', fixture_dir='../fixture_difficulty')",
-    )
-    content = content.replace(
-        "load_gw_outputs(TARGET_GW)",
-        f"load_gw_outputs({pred_gw}, predictions_dir='../predictions', fixture_dir='../fixture_difficulty')",
-    )
 
     dest.write_text(content, encoding="utf-8")
     print(f"Created {dest.relative_to(transfer_dir)}")
@@ -93,7 +79,7 @@ def main():
 
     horizon_note = f"GW {args.pred_gw} through end of season" if args.end_gw is None else f"GW {args.pred_gw} through {args.end_gw}"
     print(f"\nDone. {horizon_note} predictions ready.")
-    print(f"Open transfer/outputs/picking_notebooks/looking_gw{args.pred_gw}.ipynb to analyse.")
+    print(f"Open transfer/outputs/picking_notebooks/gw{args.pred_gw}.ipynb to analyse.")
 
 
 if __name__ == "__main__":
