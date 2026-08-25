@@ -307,31 +307,47 @@ def get_fpl_points_conceded_df(gw_df, year):
     points_conceded_df_combined['team'] = points_conceded_df_combined['team'].map(teamcode_dict)
     return points_conceded_df_combined[['team', 'gw'] + [f'points_conceded_{pos}' for pos in ['GK', 'DEF', 'MID', 'FWD']]]
 
-def get_fpl_points_by_team(year, gw, n_gws=10):
-    gw_df = get_gw_df(gw-1, year)
+def build_fpl_points_snapshot(year, anchor_gw, n_gws=10):
+    """Rolled scored/conceded-points-by-position, anchored to real played data as of
+    anchor_gw-1. Expensive (fetches per-gw CSVs) -- build once and reuse across every
+    target week in a forecast horizon via attach_target_week_points_by_team, since it
+    doesn't depend on which future week is being forecast."""
+    gw_df = get_gw_df(anchor_gw-1, year)
     points_scored_gw_df = get_fpl_points_scored_df(gw_df, year)
     points_conceded_gw_df = get_fpl_points_conceded_df(gw_df, year).rename(columns={'team': 'opponent_team'})
 
-    points_scored_rolled = roll(points_scored_gw_df, 'team', 
+    points_scored_rolled = roll(points_scored_gw_df, 'team',
         ['points_scored_GK', 'points_scored_DEF', 'points_scored_MID', 'points_scored_FWD'],
         {'points_scored_GK': 'avg_points_scored_GK', 'points_scored_DEF': 'avg_points_scored_DEF',
-        'points_scored_MID': 'avg_points_scored_MID', 'points_scored_FWD': 'avg_points_scored_FWD'}, 
+        'points_scored_MID': 'avg_points_scored_MID', 'points_scored_FWD': 'avg_points_scored_FWD'},
         ['team', 'gw'], n_gws)
 
-    points_conceded_rolled = roll(points_conceded_gw_df, 'opponent_team', 
+    points_conceded_rolled = roll(points_conceded_gw_df, 'opponent_team',
         ['points_conceded_GK', 'points_conceded_DEF', 'points_conceded_MID', 'points_conceded_FWD'],
         {'points_conceded_GK': 'avg_points_conceded_GK_opponent', 'points_conceded_DEF': 'avg_points_conceded_DEF_opponent',
-        'points_conceded_MID': 'avg_points_conceded_MID_opponent', 'points_conceded_FWD': 'avg_points_conceded_FWD_opponent'}, 
+        'points_conceded_MID': 'avg_points_conceded_MID_opponent', 'points_conceded_FWD': 'avg_points_conceded_FWD_opponent'},
         ['opponent_team', 'gw'], n_gws)
 
-    points_scored_rolled_gw = points_scored_rolled.query(f'gw=={gw-1}')
-    points_conceded_rolled_gw = points_conceded_rolled.query(f'gw=={gw-1}')
-    fixture_dict = get_fixture_dict(gw, year)
+    points_scored_rolled_gw = points_scored_rolled.query(f'gw=={anchor_gw-1}')
+    points_conceded_rolled_gw = points_conceded_rolled.query(f'gw=={anchor_gw-1}')
+    return points_scored_rolled_gw, points_conceded_rolled_gw
+
+def attach_target_week_points_by_team(points_scored_rolled_gw, points_conceded_rolled_gw, target_gw, year):
+    """Cheap per-week step: maps the fixed anchor scored/conceded snapshot onto
+    target_gw's fixture list (who plays whom that week), which the FPL API already
+    knows in advance."""
+    points_conceded_rolled_gw = points_conceded_rolled_gw.copy()
+    fixture_dict = get_fixture_dict(target_gw, year)
     points_conceded_rolled_gw['team'] = points_conceded_rolled_gw['opponent_team'].map(fixture_dict)
 
-    fpl_points_by_team = points_conceded_rolled_gw.merge(points_scored_rolled_gw, left_on=['team', 'gw'], 
+    fpl_points_by_team = points_conceded_rolled_gw.merge(points_scored_rolled_gw, left_on=['team', 'gw'],
                                                         right_on=['team', 'gw'], how='left')
     return fpl_points_by_team.set_index(['team', 'gw', 'opponent_team'])
+
+def get_fpl_points_by_team(year, gw, n_gws=10):
+    """Backward-compatible single-week wrapper."""
+    points_scored_rolled_gw, points_conceded_rolled_gw = build_fpl_points_snapshot(year, gw, n_gws)
+    return attach_target_week_points_by_team(points_scored_rolled_gw, points_conceded_rolled_gw, gw, year)
 
 def get_fixture_diff_index(fpl_points_by_team):
     multiplier_cols = []

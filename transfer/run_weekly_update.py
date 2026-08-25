@@ -8,6 +8,7 @@ from pathlib import Path
 def parse_args():
     parser = argparse.ArgumentParser(description="Run weekly FPL prediction update for a target GW.")
     parser.add_argument("--pred-gw", type=int, required=True, help="Target gameweek to predict.")
+    parser.add_argument("--end-gw", type=int, default=None, help="Last gameweek to forecast (inclusive). Default: auto-detected end of season.")
     parser.add_argument("--pred-year", type=int, default=27, help="Prediction season suffix, e.g. 27 for 2026-27.")
     parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="ridge")
     parser.add_argument("--skip-eval", action="store_true", help="Skip train/test RMSE printout.")
@@ -38,6 +39,8 @@ def run_predictions(args, transfer_dir):
         "--pred-year", str(args.pred_year),
         "--model", args.model,
     ]
+    if args.end_gw is not None:
+        cmd += ["--end-gw", str(args.end_gw)]
     if args.skip_eval:
         cmd.append("--skip-eval")
     subprocess.run(cmd, cwd=transfer_dir, check=True)
@@ -68,7 +71,8 @@ def main():
     run_predictions(args, transfer_dir)
     create_gw_notebook(args.pred_gw, transfer_dir)
 
-    print(f"\nDone. GW {args.pred_gw} predictions ready.")
+    horizon_note = f"GW {args.pred_gw} through end of season" if args.end_gw is None else f"GW {args.pred_gw} through {args.end_gw}"
+    print(f"\nDone. {horizon_note} predictions ready.")
     print(f"Open transfer/outputs/looking_gw{args.pred_gw}.ipynb to analyse.")
 
 

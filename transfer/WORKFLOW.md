@@ -8,16 +8,44 @@ From the repository root:
 python transfer/run_weekly_update.py --pred-gw 5 --pred-year 27
 ```
 
+**By default this now forecasts every gameweek from `--pred-gw` through the end of the
+season** (auto-detected from the live FPL Draft API), not just the one week. Narrow it
+with `--end-gw`:
+
+```powershell
+python transfer/run_weekly_update.py --pred-gw 5 --pred-year 27 --end-gw 8
+```
+
 Optional flags:
 
 - `--model elasticnet|ridge|lasso|linear|xgboost`
+- `--end-gw <gw>` — last gameweek to forecast (inclusive). Omit for auto-detected end of season.
 - `--skip-eval`
 
-This writes outputs to:
+**Methodology**: a player's "current form" feature snapshot (EWMA/rolling stats) is
+built once, anchored to the last real played gameweek (`--pred-gw`), and held constant
+across the whole horizon — there's no real match data yet for future weeks to
+re-derive form from. Only the opponent/fixture-difficulty context varies week to week,
+using the FPL fixture schedule (known in advance for the whole season).
+
+This writes outputs to, **for every gameweek in the horizon**:
 
 - `transfer/outputs/predictions/predicted_gw<gw>.csv`
 - `transfer/outputs/predictions/predicted_gw<gw>_simple.csv`
 - `transfer/outputs/fixture_difficulty/fixture_difficulty_gw<gw>.csv`
+
+plus one combined summary covering the whole horizon:
+
+- `transfer/outputs/predictions/predicted_horizon_gw<start>_to_<end>.csv` — one row per
+  player: `full_name, position, team, owner, total_predicted_points_adj,
+  avg_predicted_points_adj, n_gws_with_fixture, gw<N>_predicted_points_adj, ...` (one
+  column per week) — useful both as a "best run-in" ranking and as a fixture-by-fixture
+  view. A blank gameweek for a player shows up as `NaN` in that week's column and is
+  excluded from the totals/average (via `n_gws_with_fixture`), not treated as a zero.
+
+Note: `latest_gw_tools.load_latest_outputs()` picks the *last* week of the horizon as
+"latest" (it takes `max(gws)` found among `predicted_gw*_simple.csv` files) — use
+`load_gw_outputs(gw)` to pin an exact week instead.
 
 ## 2) Use One Notebook (No Copy/Paste)
 
