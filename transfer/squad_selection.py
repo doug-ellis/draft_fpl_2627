@@ -36,12 +36,16 @@ def get_best_11_noadj(pred_df):
     return _get_best_11(pred_df, 'predicted_points')
 
 def get_owner_dict():
-    owner_dict = {88376.0: 'Doug',
-              93330.0: 'Marcus',
-              87737.0: 'Will',
-              85076.0: 'Lucas',
-              85646.0: 'Dave',
-              94654.0: 'Rory'  
+    owner_dict = {14969.0: 'Lucas',
+              14970.0: 'Dave',
+              14971.0: 'Will',
+              14972.0: 'Doug',
+              14973.0: 'Marcus',
+              14974.0: 'Rory D',
+              15210.0: 'Richard',
+              50210.0: 'Arthur',
+              61014.0: 'Tobias',
+              79641.0: 'Rory B',
               }
     return owner_dict
 
