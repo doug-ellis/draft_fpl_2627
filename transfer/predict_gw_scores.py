@@ -176,7 +176,7 @@ def parse_args():
     parser.add_argument("--rolling-gws", type=int, default=4, help="Rolling window size if using rolling averaging.")
     parser.add_argument("--avg-type", choices=["rolling", "ewma"], default="ewma", help="Feature averaging strategy.")
     parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="ridge", help="Model family.")
-    parser.add_argument("--league-id", type=int, default=19188, help="Draft league ID for ownership pull.")
+    parser.add_argument("--league-id", type=int, default=3875, help="Draft league ID for ownership pull.")
     parser.add_argument("--output-dir", default="outputs", help="Output folder under transfer/ unless absolute path is provided.")
     parser.add_argument("--skip-eval", action="store_true", help="Skip train/test RMSE printout.")
     return parser.parse_args()
