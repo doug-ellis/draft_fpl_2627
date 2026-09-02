@@ -10,7 +10,7 @@ def parse_args():
     parser.add_argument("--pred-gw", type=int, required=True, help="Target gameweek to predict.")
     parser.add_argument("--end-gw", type=int, default=None, help="Last gameweek to forecast (inclusive). Default: auto-detected end of season.")
     parser.add_argument("--pred-year", type=int, default=27, help="Prediction season suffix, e.g. 27 for 2026-27.")
-    parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="ridge")
+    parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="elasticnet")
     parser.add_argument("--skip-eval", action="store_true", help="Skip train/test RMSE printout.")
     parser.add_argument(
         "--skip-scrape", "--skip-scraping",

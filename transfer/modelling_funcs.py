@@ -1,3 +1,4 @@
+import pandas as pd
 from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from xgboost import XGBRegressor
 from sklearn.inspection import permutation_importance
@@ -122,3 +123,35 @@ def predict_scores(prediction_df, features, model_dict, scaler_dict):
         X_pred_scaled = scaler_dict[pos].transform(X_pred)
         prediction_df.loc[prediction_df['position']==pos, 'predicted_points'] = model_dict[pos].predict(X_pred_scaled)
     return prediction_df
+
+def compute_feature_contributions(prediction_df, features, model_dict, scaler_dict):
+    """Per-player, per-feature breakdown of a linear model's prediction: each
+    feature's column holds scaled_value * coef_ (its contribution, in points, to
+    that player's predicted score), plus an 'intercept' column and a final
+    'predicted_points' column equal to the row's contributions + intercept.
+
+    Only meaningful for linear models exposing .coef_/.intercept_ (ridge, lasso,
+    elasticnet, linear) -- raises TypeError for anything else (e.g. xgboost),
+    since a tree ensemble has no single per-feature coefficient to multiply
+    through like this (that needs SHAP values instead, not implemented here)."""
+    pos_frames = []
+    for pos in ['GK', 'DEF', 'MID', 'FWD']:
+        prediction_df_pos = prediction_df.query('position==@pos')
+        if prediction_df_pos.empty:
+            continue
+        model = model_dict[pos]
+        if not hasattr(model, 'coef_'):
+            raise TypeError(
+                f"compute_feature_contributions needs a linear model with .coef_/.intercept_ "
+                f"(got {type(model).__name__} for position {pos})."
+            )
+        X_scaled = scaler_dict[pos].transform(prediction_df_pos[features])
+        contrib = pd.DataFrame(X_scaled * model.coef_, columns=features, index=prediction_df_pos.index)
+        contrib.insert(0, 'full_name', prediction_df_pos['full_name'].values)
+        contrib.insert(1, 'position', pos)
+        contrib.insert(2, 'team', prediction_df_pos['team'].values)
+        contrib['intercept'] = model.intercept_
+        contrib['predicted_points'] = contrib[features].sum(axis=1) + model.intercept_
+        pos_frames.append(contrib)
+    result = pd.concat(pos_frames, ignore_index=True)
+    return result.set_index('full_name')

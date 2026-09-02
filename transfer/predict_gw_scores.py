@@ -8,7 +8,7 @@ from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
 from xgboost import XGBRegressor
 from urllib3.util.retry import Retry
 
-from modelling_funcs import create_model, predict_scores
+from modelling_funcs import compute_feature_contributions, create_model, predict_scores
 from wrangle_data_funcs import (
     attach_target_week_points_by_team,
     build_fpl_points_snapshot,
@@ -175,7 +175,7 @@ def parse_args():
     parser.add_argument("--alpha", type=float, default=0.6, help="EWMA alpha if using ewma averaging.")
     parser.add_argument("--rolling-gws", type=int, default=4, help="Rolling window size if using rolling averaging.")
     parser.add_argument("--avg-type", choices=["rolling", "ewma"], default="ewma", help="Feature averaging strategy.")
-    parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="ridge", help="Model family.")
+    parser.add_argument("--model", choices=["elasticnet", "ridge", "lasso", "linear", "xgboost"], default="elasticnet", help="Model family.")
     parser.add_argument("--league-id", type=int, default=3875, help="Draft league ID for ownership pull.")
     parser.add_argument("--output-dir", default="outputs", help="Output folder under transfer/ unless absolute path is provided.")
     parser.add_argument("--skip-eval", action="store_true", help="Skip train/test RMSE printout.")
@@ -258,8 +258,10 @@ def main():
         output_dir = (base_dir / output_dir).resolve()
     prediction_output_dir = output_dir / "predictions"
     fixture_output_dir = output_dir / "fixture_difficulty"
+    contributions_output_dir = output_dir / "feature_contributions"
     prediction_output_dir.mkdir(parents=True, exist_ok=True)
     fixture_output_dir.mkdir(parents=True, exist_ok=True)
+    contributions_output_dir.mkdir(parents=True, exist_ok=True)
 
     features = get_features()
     model_func = get_model_func(args.model)
@@ -285,6 +287,7 @@ def main():
 
     # --- per-week cheap work: only the fixture/opponent context varies ---
     simple_frames = {}
+    contributions_path = None
     for target_gw in horizon_gws:
         prediction_df = attach_target_week(prediction_snapshot, opp_team_df, target_gw, args.pred_year)
         pred_df = predict_scores(prediction_df.dropna(subset=features).copy(), features, model_dict, scaler_dict)
@@ -300,6 +303,18 @@ def main():
         pred_df_simple.to_csv(prediction_output_dir / f'predicted_gw{target_gw}_simple.csv', index=False)
         fixture_diff_index.to_csv(fixture_output_dir / f'fixture_difficulty_gw{target_gw}.csv')
 
+        # One feature-contribution breakdown per run (i.e. per --pred-gw), not per week
+        # in the horizon -- it's meant to explain *this run's* predictions, anchored to
+        # target_gw == args.pred_gw, the same real-data snapshot every week in the
+        # horizon is built from.
+        if target_gw == args.pred_gw:
+            try:
+                contributions_df = compute_feature_contributions(pred_df, features, model_dict, scaler_dict)
+                contributions_path = contributions_output_dir / f"feature_contributions_gw{target_gw}.csv"
+                contributions_df.to_csv(contributions_path)
+            except TypeError as e:
+                print(f"Skipping feature-contribution export ({e})")
+
         simple_frames[target_gw] = pred_df_simple
 
     horizon_df = build_horizon_summary(simple_frames, horizon_gws)
@@ -307,6 +322,8 @@ def main():
         prediction_output_dir / f"predicted_horizon_gw{horizon_gws[0]}_to_{horizon_gws[-1]}.csv", index=False)
 
     print(f"\nForecast {len(horizon_gws)} gameweek(s): {horizon_gws[0]} to {horizon_gws[-1]}.")
+    if contributions_path is not None:
+        print(f"Feature contributions for GW{args.pred_gw}: {contributions_path}")
 
 if __name__ == "__main__":
     main()
