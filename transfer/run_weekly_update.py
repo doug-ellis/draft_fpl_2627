@@ -66,6 +66,24 @@ def create_gw_notebook(pred_gw, transfer_dir):
     dest.write_text(content, encoding="utf-8")
     print(f"Created {dest.relative_to(transfer_dir)}")
 
+    # The template file carries whatever stale outputs (e.g. an old ownership/draft
+    # snapshot) were baked in the last time IT was executed. Copying its source
+    # alone leaves those stale outputs in place until someone opens the new
+    # notebook and re-runs it by hand -- execute it here so the notebook's
+    # displayed outputs (ownership, predictions, etc.) reflect this week's data.
+    print(f"Executing {dest.name} to refresh outputs...")
+    subprocess.run(
+        [
+            sys.executable, "-m", "jupyter", "nbconvert",
+            "--to", "notebook", "--execute", "--inplace",
+            "--ExecutePreprocessor.timeout=600",
+            str(dest),
+        ],
+        cwd=notebooks_dir,
+        check=True,
+    )
+    print(f"Executed {dest.relative_to(transfer_dir)}")
+
 
 def main():
     args = parse_args()
