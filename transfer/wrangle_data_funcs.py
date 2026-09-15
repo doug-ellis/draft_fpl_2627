@@ -359,7 +359,6 @@ def get_fixture_diff_index(fpl_points_by_team):
     for pos in ['GK', 'DEF', 'MID', 'FWD']:
         fpl_points_by_team[f'fixture_diff_{pos}_multiplier'] = (
             fpl_points_by_team[f'avg_points_conceded_{pos}_opponent_multiplier']
-            * fpl_points_by_team[f'avg_points_scored_{pos}_multiplier']
         ).clip(lower=0.5, upper=2)
     
     return fpl_points_by_team
